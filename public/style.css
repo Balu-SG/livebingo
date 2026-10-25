@@ -1,0 +1,7 @@
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #101018; color: #f5f3ff; font: 16px/1.5 system-ui, sans-serif; }
+main { width: min(100%, 520px); padding: 36px; border: 1px solid #373447; border-radius: 18px; background: #1b1925; }
+h1 { margin: 0 0 8px; color: #bf94ff; }
+p { color: #c9c5d4; }
+a.button { display: inline-block; margin-top: 12px; padding: 12px 18px; border-radius: 8px; background: #9147ff; color: white; font-weight: 700; text-decoration: none; }
+.status { color: #a9f0c1; }

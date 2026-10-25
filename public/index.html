@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LiveBingo</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <h1>LiveBingo</h1>
+    <p>Personal bingo cards, powered by what happens on stream.</p>
+    <p id="account">Checking login status…</p>
+    <p id="eventsub" class="status"></p>
+    <a class="button" href="/auth/login">Log in with Twitch</a>
+  </main>
+  <script>
+    fetch('/status').then((response) => response.json()).then((status) => {
+      document.querySelector('#account').textContent = status.loggedIn ? `Logged in as ${status.username}` : 'Not logged in yet.';
+      document.querySelector('#eventsub').textContent = `EventSub connected: ${status.eventSubConnected ? 'yes' : 'no'}`;
+    }).catch(() => { document.querySelector('#account').textContent = 'Could not load status.'; });
+  </script>
+</body>
+</html>
