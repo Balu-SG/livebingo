@@ -148,13 +148,13 @@ export class RoundManager {
     return events;
   }
 
-  async receiveChat(userId: string, user: string, text: string, atMs = Date.now()) {
-    if (this.round.status !== 'live') return [];
-    const normalized = text.toLowerCase();
+  async receiveChat(userId: string, user: string, text: string, atMs = Date.now(), ignoredUserIds: string[] = []) {
+    if (this.round.status !== 'live' || text.trimStart().startsWith('!') || ignoredUserIds.includes(userId)) return [];
+    const words = text.toLowerCase().split(/[\s\p{P}]+/u);
     const completed: RoundEvent[] = [];
     for (const square of this.round.squarePool) {
       const trigger = square.trigger;
-      const hasKeyword = trigger.type === 'chatBurst' && normalized.split(/[^a-z0-9]+/).includes(trigger.keyword.toLowerCase());
+      const hasKeyword = trigger.type === 'chatBurst' && words.includes(trigger.keyword.toLowerCase());
       if (trigger.type !== 'chatBurst' || !hasKeyword || this.round.hits[square.id]) continue;
       const cutoff = atMs - trigger.windowSec * 1000;
       const activity = this.round.chatActivity[square.id] ??= {};
@@ -177,13 +177,23 @@ export class RoundManager {
     return results;
   }
 
+  square(squareId: string) {
+    return this.round.squarePool.find((item) => item.id === squareId);
+  }
+
   viewerCard(cardId: string) {
     const card = this.getCard(cardId);
     if (!card) return undefined;
     const labels = new Map(this.round.squarePool.map((square) => [square.id, square.label]));
     return {
       id: card.id, user: card.user, wonAt: card.wonAt, rank: card.rank,
-      squares: card.squareIds.map((id, index) => ({ id, label: id === 'FREE' ? 'FREE' : labels.get(id) ?? 'Unknown square', hitAt: id === 'FREE' ? 'FREE' : this.round.hits[id] ?? null, index })),
+      squares: card.squareIds.map((id, index) => ({
+        id,
+        label: id === 'FREE' ? 'FREE' : labels.get(id) ?? 'Unknown square',
+        trigger: this.square(id)?.trigger ?? null,
+        hitAt: id === 'FREE' ? 'FREE' : this.round.hits[id] ?? null,
+        index,
+      })),
       status: this.round.status,
     };
   }

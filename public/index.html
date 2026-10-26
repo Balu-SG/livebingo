@@ -12,13 +12,24 @@
     <p>Personal bingo cards, powered by what happens on stream.</p>
     <p id="account">Checking login status…</p>
     <p id="eventsub" class="status"></p>
+    <p id="subscriptions">EventSub subscriptions: checking…</p>
     <a class="button" href="/auth/login">Log in with Twitch</a>
   </main>
   <script>
-    fetch('/status').then((response) => response.json()).then((status) => {
-      document.querySelector('#account').textContent = status.loggedIn ? `Logged in as ${status.username}` : 'Not logged in yet.';
-      document.querySelector('#eventsub').textContent = `EventSub connected: ${status.eventSubConnected ? 'yes' : 'no'}`;
-    }).catch(() => { document.querySelector('#account').textContent = 'Could not load status.'; });
+    async function updateStatus() {
+      try {
+        const response = await fetch('/status', { cache: 'no-store' });
+        const status = await response.json();
+        document.querySelector('#account').textContent = status.loggedIn ? `Logged in as ${status.username}` : 'Not logged in yet.';
+        document.querySelector('#eventsub').textContent = `EventSub connected: ${status.eventSubConnected ? 'yes' : 'no'}`;
+        const subscriptions = status.activeSubscriptions.length ? status.activeSubscriptions.join(', ') : 'none active';
+        document.querySelector('#subscriptions').textContent = `Active subscriptions: ${subscriptions}`;
+      } catch {
+        document.querySelector('#account').textContent = 'Could not load status.';
+      }
+    }
+    updateStatus();
+    setInterval(updateStatus, 5000);
   </script>
 </body>
 </html>

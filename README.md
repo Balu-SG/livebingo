@@ -6,6 +6,7 @@ LiveBingo is a small Twitch-connected foundation for viewer-specific bingo cards
 
 1. Create an application in the [Twitch Developer Console](https://dev.twitch.tv/console/apps). Set its OAuth redirect URL to `http://localhost:3000/auth/callback` and its category to **Website Integration**.
 2. Copy `.env.example` to `.env` and fill in `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`. Keep the redirect URI and public base URL at their localhost defaults for local testing.
+   Add a long random `ADMIN_TOKEN` to `.env` for scripts and curl. The app does not overwrite your `.env`; after logging in through Twitch, the browser also receives a signed admin session cookie.
 3. Install dependencies and start the development server:
 
    ```sh
@@ -24,7 +25,7 @@ For a production build, run `npm run build` and then `npm start`. Tokens are sav
 2. Start a round from a terminal:
 
    ```sh
-   curl -X POST http://localhost:3000/api/round/start
+   curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:3000/api/round/start
    ```
 
 3. From a second Twitch account, open the streamer's chat and send `!bingo`. The bot creates one card for that viewer and replies with its link. Open the link in another browser; its 5×5 board updates over WebSocket. To open it on a phone on the same Wi-Fi, set `PUBLIC_BASE_URL` in `.env` to the computer's LAN URL (for example `http://192.168.1.20:3000`) and restart the app before requesting a card.
@@ -32,7 +33,7 @@ For a production build, run `npm run build` and then `npm start`. Tokens are sav
 
    ```sh
    for square in rage-moment snack-break technical-pause big-play streamer-laughs game-change missed-shot unexpected-win loud-noise streamer-sings game-glitch water-break; do
-     curl -sS -X POST "http://localhost:3000/api/squares/$square/hit"
+     curl -sS -X POST -H "X-Admin-Token: $ADMIN_TOKEN" "http://localhost:3000/api/squares/$square/hit"
    done
    ```
 
@@ -41,7 +42,11 @@ For a production build, run `npm run build` and then `npm start`. Tokens are sav
 5. End the round when finished:
 
    ```sh
-   curl -X POST http://localhost:3000/api/round/end
+   curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:3000/api/round/end
    ```
 
 The round, cards, marked squares, and winner order persist in `data/state.json`. Starting a new round resets its cards and hits. The viewer page is served from `/c/:id`; its dynamic text is rendered with `textContent`.
+
+## Record the demo
+
+With the app running and logged in as the streamer, run `npm run demo`. It reads `ADMIN_TOKEN` and `PUBLIC_BASE_URL` from `.env`, starts a fresh round, creates five fake viewers, and plays follow, chat-burst, raid, cheer, and manual hits until a card wins. It prints the card links and leaves the round live for recording. To use curl, export the same token in your terminal as `ADMIN_TOKEN`.
