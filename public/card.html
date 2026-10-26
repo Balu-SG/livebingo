@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101018">
+  <title>LiveBingo Card</title>
+  <link rel="stylesheet" href="/card.css">
+  <script src="/card.js" defer></script>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> LiveBingo</div>
+      <span id="round-status" class="round-status">Loading round…</span>
+    </header>
+    <section class="card-panel" aria-labelledby="viewer-name">
+      <div class="heading">
+        <div>
+          <p class="eyebrow">YOUR STREAM CARD</p>
+          <h1 id="viewer-name">Loading your card…</h1>
+        </div>
+        <span class="live-dot" aria-label="Live round"></span>
+      </div>
+      <div id="bingo-banner" class="bingo-banner" role="status" hidden>
+        <span class="banner-sparkle" aria-hidden="true">✦</span>
+        <span>BINGO!</span>
+        <span id="winner-rank" class="winner-rank"></span>
+      </div>
+      <div id="bingo-grid" class="bingo-grid" role="grid" aria-label="Your 5 by 5 bingo card"></div>
+      <p class="hint">Squares stamp themselves as the stream unfolds.</p>
+      <p id="error-message" class="error-message" role="alert" hidden></p>
+    </section>
+    <footer>Made for the moments chat remembers.</footer>
+  </main>
+</body>
+</html>

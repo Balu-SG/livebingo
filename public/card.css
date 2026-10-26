@@ -1,0 +1,79 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #101018;
+  color: #f4f1ff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: radial-gradient(ellipse at 50% 0%, #252039 0%, #101018 48rem);
+}
+
+.page {
+  width: min(100%, 560px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: max(20px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar, .heading { display: flex; align-items: center; justify-content: space-between; }
+.topbar { padding: 6px 2px 24px; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 850; letter-spacing: -.03em; }
+.brand-mark { color: #d2a2ff; font-size: 1.3rem; }
+.round-status { color: #a8a1ba; font-size: .78rem; font-weight: 650; }
+.card-panel { padding: 20px; border: 1px solid #363149; border-radius: 22px; background: linear-gradient(145deg, #1d1a2a, #191723); box-shadow: 0 22px 70px #0005; }
+.heading { gap: 12px; margin-bottom: 18px; }
+.eyebrow { margin: 0 0 5px; color: #bfa3f5; font-size: .66rem; font-weight: 800; letter-spacing: .17em; }
+h1 { overflow-wrap: anywhere; margin: 0; font-size: clamp(1.35rem, 6vw, 1.9rem); line-height: 1.12; letter-spacing: -.04em; }
+.live-dot { flex: 0 0 auto; width: 11px; height: 11px; border-radius: 50%; background: #62edb5; box-shadow: 0 0 15px #62edb588; }
+.bingo-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(5px, 1.8vw, 9px); }
+.tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid #454057;
+  border-radius: clamp(8px, 2.6vw, 13px);
+  background: linear-gradient(145deg, #302c3d, #242130);
+  color: #e9e4f2;
+  text-align: center;
+  font-size: clamp(.58rem, 2.6vw, .77rem);
+  font-weight: 650;
+  line-height: 1.2;
+  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+.tile.free { border-color: #9f65ea; background: linear-gradient(145deg, #7d42bd, #512d82); color: white; font-size: clamp(.62rem, 2.8vw, .82rem); font-weight: 900; letter-spacing: .04em; }
+.tile.hit { border-color: #e5baff; background: linear-gradient(145deg, #7042a0, #482862); box-shadow: inset 0 0 0 1px #d9adff44, 0 0 18px #ad61f529; }
+.tile.hit::after { position: absolute; inset: 0; display: grid; place-items: center; content: "✓"; color: #fff; font-size: clamp(1.6rem, 9vw, 2.8rem); font-weight: 1000; text-shadow: 0 2px 12px #d58cff; opacity: .8; animation: stamp .22s cubic-bezier(.15, 1.7, .4, 1) both; pointer-events: none; }
+.tile.hit span { position: relative; z-index: 1; text-shadow: 0 1px 5px #1c0929; }
+.hint { margin: 17px 2px 0; color: #a9a3b7; text-align: center; font-size: .8rem; }
+.bingo-banner { display: flex; justify-content: center; align-items: center; gap: 9px; margin: 0 0 16px; padding: 12px; border: 1px solid #f9cf68; border-radius: 13px; background: linear-gradient(100deg, #65418d, #8f58bc, #65418d); color: #fff5c8; font-size: clamp(1.25rem, 7vw, 2rem); font-weight: 1000; letter-spacing: .08em; box-shadow: 0 0 28px #c786ff66; animation: banner-in .45s cubic-bezier(.15, 1.4, .4, 1) both; }
+.banner-sparkle { color: #ffe98a; }
+.winner-rank { font-size: .68rem; letter-spacing: 0; color: #fff; }
+.error-message { color: #ff9da7; text-align: center; font-size: .9rem; }
+footer { margin-top: auto; padding: 22px 0 4px; color: #777287; text-align: center; font-size: .75rem; }
+[hidden] { display: none !important; }
+
+@keyframes stamp { from { transform: scale(1.7) rotate(-12deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: .8; } }
+@keyframes banner-in { from { transform: translateY(7px) scale(.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
+@media (max-width: 360px) {
+  .page { padding-right: 12px; padding-left: 12px; }
+  .card-panel { padding: 14px; }
+  .tile { font-size: .56rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

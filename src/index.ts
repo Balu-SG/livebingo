@@ -1,11 +1,12 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import WebSocket from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
+import { RoundManager } from './round.js';
 
 const clientId = process.env.TWITCH_CLIENT_ID;
 const clientSecret = process.env.TWITCH_CLIENT_SECRET;
@@ -18,7 +19,10 @@ const scopes = [
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(root, '../public');
 const tokenFile = path.resolve(root, '../data/tokens.json');
+const stateFile = path.resolve(root, '../data/state.json');
 const app = Fastify({ logger: true });
+const rounds = new RoundManager(stateFile);
+const webSocketServer = new WebSocketServer({ noServer: true });
 
 type TwitchUser = { id: string; login: string; display_name: string };
 type TokenData = { access_token: string; refresh_token: string; expires_at: number; user: TwitchUser };
@@ -27,7 +31,17 @@ let eventSocket: WebSocket | null = null;
 let eventSubConnected = false;
 let reconnectTimer: NodeJS.Timeout | undefined;
 let pendingOAuthState: string | undefined;
-const cards = new Map<string, string>();
+
+rounds.onEvent((event) => {
+  broadcast(event);
+});
+
+function broadcast(event: unknown) {
+  const message = JSON.stringify(event);
+  for (const socket of webSocketServer.clients) {
+    if (socket.readyState === WebSocket.OPEN) socket.send(message);
+  }
+}
 
 async function loadTokens() {
   try {
@@ -99,6 +113,8 @@ function connectEventSub(url = 'wss://eventsub.wss.twitch.tv/ws', transferFrom?:
         connectEventSub(message.payload.session.reconnect_url, socket);
       } else if (type === 'notification' && message.payload.subscription.type === 'channel.chat.message') {
         await handleChatMessage(message.payload.event);
+      } else if (type === 'notification') {
+        await handleEventSubNotification(message.payload.subscription.type, message.payload.event);
       } else if (type === 'revocation') {
         app.log.warn({ subscription: message.payload.subscription }, 'EventSub subscription revoked');
       }
@@ -119,41 +135,126 @@ function connectEventSub(url = 'wss://eventsub.wss.twitch.tv/ws', transferFrom?:
 
 async function subscribeToChat(sessionId: string) {
   if (!tokens) return;
-  const response = await helix('/eventsub/subscriptions', {
-    method: 'POST',
-    body: JSON.stringify({
-      type: 'channel.chat.message', version: '1',
-      condition: { broadcaster_user_id: tokens.user.id, user_id: tokens.user.id },
-      transport: { method: 'websocket', session_id: sessionId },
-    }),
-  });
-  if (!response.ok) throw new Error(`EventSub subscription failed: ${response.status} ${await response.text()}`);
-  app.log.info({ broadcaster: tokens.user.login }, 'Subscribed to channel.chat.message');
+  const subscriptions = [
+    { type: 'channel.chat.message', version: '1', condition: { broadcaster_user_id: tokens.user.id, user_id: tokens.user.id } },
+    { type: 'channel.raid', version: '1', condition: { to_broadcaster_user_id: tokens.user.id } },
+    { type: 'channel.follow', version: '2', condition: { broadcaster_user_id: tokens.user.id, moderator_user_id: tokens.user.id } },
+    { type: 'channel.subscribe', version: '1', condition: { broadcaster_user_id: tokens.user.id } },
+    { type: 'channel.subscription.gift', version: '1', condition: { broadcaster_user_id: tokens.user.id } },
+    { type: 'channel.cheer', version: '1', condition: { broadcaster_user_id: tokens.user.id } },
+  ];
+  for (const subscription of subscriptions) {
+    const response = await helix('/eventsub/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({ ...subscription, transport: { method: 'websocket', session_id: sessionId } }),
+    });
+    if (!response.ok) throw new Error(`EventSub ${subscription.type} subscription failed: ${response.status} ${await response.text()}`);
+    app.log.info({ type: subscription.type }, 'Subscribed to EventSub');
+  }
 }
 
 async function handleChatMessage(event: { message: { text: string }; chatter_user_id: string; chatter_user_login: string; broadcaster_user_id: string }) {
   app.log.info({ user: event.chatter_user_login, text: event.message.text }, 'Chat message received');
+  await rounds.receiveChat(event.chatter_user_id, event.chatter_user_login, event.message.text);
   if (event.message.text.trim().toLowerCase() !== '!bingo' || !tokens) return;
-  let cardId = cards.get(event.chatter_user_id);
-  if (!cardId) {
-    cardId = randomBytes(4).toString('hex');
-    cards.set(event.chatter_user_id, cardId);
+  let message: string;
+  if (rounds.round.status !== 'live') {
+    message = `@${event.chatter_user_login} the next LiveBingo round hasn't started yet.`;
+  } else {
+    const card = rounds.createCard(event.chatter_user_id, event.chatter_user_login);
+    await rounds.saveCard(card);
+    message = `@${event.chatter_user_login} your LiveBingo card → ${publicBaseUrl}/c/${card.id}`;
   }
   const response = await helix('/chat/messages', {
     method: 'POST',
-    body: JSON.stringify({ broadcaster_id: event.broadcaster_user_id, sender_id: tokens.user.id, message: `@${event.chatter_user_login} your LiveBingo card → ${publicBaseUrl}/c/${cardId}` }),
+    body: JSON.stringify({ broadcaster_id: event.broadcaster_user_id, sender_id: tokens.user.id, message }),
   });
   if (!response.ok) throw new Error(`Chat reply failed: ${response.status} ${await response.text()}`);
-  app.log.info({ user: event.chatter_user_login, cardId }, 'Bingo card link sent');
+  app.log.info({ user: event.chatter_user_login }, 'Bingo chat reply sent');
+}
+
+async function handleEventSubNotification(type: string, event: any) {
+  if (type === 'channel.raid') await rounds.hitEvent('raid');
+  if (type === 'channel.follow') await rounds.hitEvent('follow');
+  if (type === 'channel.subscribe' && !event.is_gift) await rounds.hitEvent('sub');
+  if (type === 'channel.subscription.gift') await rounds.hitEvent('giftsub');
+  if (type === 'channel.cheer') await rounds.hitEvent('cheer', event.bits);
 }
 
 app.register(fastifyStatic, { root: publicDir });
 
 app.get('/status', async () => ({ loggedIn: Boolean(tokens), username: tokens?.user.display_name ?? null, eventSubConnected }));
 
-app.get<{ Params: { cardId: string } }>('/c/:cardId', async (request, reply) => {
-  if (![...cards.values()].includes(request.params.cardId)) return reply.code(404).type('text/plain').send('Bingo card not found. Ask in chat with !bingo to create one.');
-  return reply.type('text/html').send(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LiveBingo Card</title><link rel="stylesheet" href="/style.css"><main><h1>LiveBingo</h1><p>Your personal card is ready.</p><p>Card ID: ${request.params.cardId}</p><p>Squares will appear here as bingo events are added.</p></main></html>`);
+app.get<{ Params: { id: string } }>('/c/:id', async (request, reply) => {
+  if (!rounds.getCard(request.params.id)) return reply.code(404).type('text/plain').send('Bingo card not found. Ask in chat with !bingo during a live round to create one.');
+  return reply.sendFile('card.html');
+});
+
+app.get<{ Params: { id: string } }>('/api/cards/:id', async (request, reply) => {
+  const card = rounds.viewerCard(request.params.id);
+  if (!card) return reply.code(404).send({ error: 'Bingo card not found.' });
+  return card;
+});
+
+app.post('/api/round/start', async (_request, reply) => {
+  try {
+    const round = await rounds.startRound();
+    broadcast({ type: 'round_state', status: round.status, hits: round.hits });
+    app.log.info('Bingo round started');
+    return { status: round.status, squares: round.squarePool.length };
+  } catch (error) {
+    return reply.code(409).send({ error: error instanceof Error ? error.message : 'Could not start round.' });
+  }
+});
+
+app.post('/api/round/end', async (_request, reply) => {
+  try {
+    await rounds.endRound();
+    broadcast({ type: 'round_state', status: rounds.round.status, hits: rounds.round.hits });
+    app.log.info('Bingo round ended');
+    return { status: rounds.round.status, winners: rounds.round.winnerOrder.length };
+  } catch (error) {
+    return reply.code(409).send({ error: error instanceof Error ? error.message : 'Could not end round.' });
+  }
+});
+
+app.post<{ Params: { id: string } }>('/api/squares/:id/hit', async (request, reply) => {
+  try {
+    const events = await rounds.hitSquare(request.params.id, 'manual');
+    app.log.info({ squareId: request.params.id }, 'Manual square hit');
+    return { events };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not hit square.';
+    return reply.code(message === 'There is no live round.' ? 409 : 400).send({ error: message });
+  }
+});
+
+app.server.on('upgrade', (request, socket, head) => {
+  const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+  if (url.pathname !== '/ws') return;
+  const cardId = url.searchParams.get('card');
+  const role = url.searchParams.get('role');
+  if (cardId && !rounds.getCard(cardId)) {
+    socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  if (!cardId && role !== 'overlay' && role !== 'dashboard') {
+    socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  webSocketServer.handleUpgrade(request, socket, head, (client) => {
+    webSocketServer.emit('connection', client, request);
+    client.send(JSON.stringify({
+      type: 'round_state', status: rounds.round.status,
+      hits: rounds.round.hits, card: cardId ? rounds.viewerCard(cardId) : undefined,
+    }));
+  });
+});
+
+webSocketServer.on('connection', (socket) => {
+  socket.on('error', (error) => app.log.warn(error, 'Viewer WebSocket error'));
 });
 
 app.get('/auth/login', async (_request, reply) => {
@@ -187,6 +288,7 @@ app.get<{ Querystring: { code?: string; error?: string; state?: string } }>('/au
 });
 
 async function start() {
+  await rounds.load();
   await loadTokens();
   if (tokens) {
     app.log.info({ user: tokens.user.login }, 'Loaded saved Twitch login');
