@@ -3,8 +3,37 @@ export type SquareTrigger =
   | { type: 'chatBurst'; keyword: string; minUsers: number; windowSec: number }
   | { type: 'voice'; phrases: string[] }
   | { type: 'manual' };
+export type SquareEvent = Extract<SquareTrigger, { type: 'event' }>['event'];
 
 export type Square = { id: string; label: string; trigger: SquareTrigger };
+
+export function validateSquarePool(value: unknown): Square[] {
+  if (!Array.isArray(value) || value.length < 24) throw new Error('The square pool must contain at least 24 squares.');
+  const ids = new Set<string>();
+  const events = new Set(['raid', 'follow', 'sub', 'giftsub', 'cheer']);
+  const squares = value.map((entry): Square => {
+    if (!entry || typeof entry !== 'object') throw new Error('Each square must be an object.');
+    const square = entry as Record<string, unknown>;
+    if (typeof square.id !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(square.id)) throw new Error('Square IDs must use letters, numbers, hyphens, or underscores.');
+    if (ids.has(square.id)) throw new Error(`Duplicate square ID: ${square.id}`);
+    ids.add(square.id);
+    if (typeof square.label !== 'string' || !square.label.trim() || Array.from(square.label.trim()).length > 28) throw new Error(`Square ${square.id} needs a label of 1–28 characters.`);
+    if (!square.trigger || typeof square.trigger !== 'object') throw new Error(`Square ${square.id} needs a valid trigger.`);
+    const trigger = square.trigger as Record<string, unknown>;
+    if (trigger.type === 'event' && typeof trigger.event === 'string' && events.has(trigger.event) && (trigger.minBits === undefined || trigger.minBits === null || (Number.isInteger(Number(trigger.minBits)) && Number(trigger.minBits) >= 0))) {
+      return { id: square.id, label: square.label.trim(), trigger: { type: 'event', event: trigger.event as SquareEvent, ...(trigger.minBits === undefined || trigger.minBits === null ? {} : { minBits: Number(trigger.minBits) }) } };
+    }
+    if (trigger.type === 'chatBurst' && typeof trigger.keyword === 'string' && trigger.keyword.trim() && Number.isInteger(Number(trigger.minUsers)) && Number(trigger.minUsers) > 0 && Number.isInteger(Number(trigger.windowSec)) && Number(trigger.windowSec) > 0) {
+      return { id: square.id, label: square.label.trim(), trigger: { type: 'chatBurst', keyword: trigger.keyword.trim(), minUsers: Number(trigger.minUsers), windowSec: Number(trigger.windowSec) } };
+    }
+    if (trigger.type === 'voice' && Array.isArray(trigger.phrases) && trigger.phrases.length > 0 && trigger.phrases.every((phrase) => typeof phrase === 'string' && phrase.trim())) {
+      return { id: square.id, label: square.label.trim(), trigger: { type: 'voice', phrases: trigger.phrases.map((phrase) => String(phrase).trim()) } };
+    }
+    if (trigger.type === 'manual') return { id: square.id, label: square.label.trim(), trigger: { type: 'manual' } };
+    throw new Error(`Square ${square.id} has an invalid trigger.`);
+  });
+  return squares;
+}
 
 export const defaultSquares: Square[] = [
   { id: 'raid-arrives', label: 'A raid arrives', trigger: { type: 'event', event: 'raid' } },

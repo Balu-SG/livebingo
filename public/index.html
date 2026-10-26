@@ -14,6 +14,7 @@
     <p id="eventsub" class="status"></p>
     <p id="subscriptions">EventSub subscriptions: checking…</p>
     <a class="button" href="/auth/login">Log in with Twitch</a>
+    <p><a id="dashboard-link" href="/dashboard" hidden>Open streamer dashboard</a></p>
   </main>
   <script>
     async function updateStatus() {
@@ -21,6 +22,7 @@
         const response = await fetch('/status', { cache: 'no-store' });
         const status = await response.json();
         document.querySelector('#account').textContent = status.loggedIn ? `Logged in as ${status.username}` : 'Not logged in yet.';
+        document.querySelector('#dashboard-link').hidden = !status.loggedIn;
         document.querySelector('#eventsub').textContent = `EventSub connected: ${status.eventSubConnected ? 'yes' : 'no'}`;
         const subscriptions = status.activeSubscriptions.length ? status.activeSubscriptions.join(', ') : 'none active';
         document.querySelector('#subscriptions').textContent = `Active subscriptions: ${subscriptions}`;

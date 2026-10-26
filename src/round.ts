@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { defaultSquares, type Square, type SquareTrigger } from './squares.js';
+import { defaultSquares, validateSquarePool, type Square, type SquareTrigger } from './squares.js';
 
 export type Card = {
   id: string;
@@ -66,14 +66,16 @@ function emptyRound(status: Round['status'] = 'idle'): Round {
 
 export class RoundManager {
   round: Round = emptyRound();
+  private configuredPool: Square[] = defaultSquares.map((square) => ({ ...square }));
   private listeners = new Set<(event: RoundEvent) => void>();
 
   constructor(private readonly stateFile: string) {}
 
   async load() {
     try {
-      const saved = JSON.parse(await readFile(this.stateFile, 'utf8')) as Round;
+      const saved = JSON.parse(await readFile(this.stateFile, 'utf8')) as Round & { configuredPool?: Square[] };
       this.round = { ...emptyRound(), ...saved };
+      this.configuredPool = validateSquarePool(saved.configuredPool ?? saved.squarePool ?? defaultSquares);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
@@ -90,12 +92,26 @@ export class RoundManager {
 
   private async save() {
     await mkdir(path.dirname(this.stateFile), { recursive: true });
-    await writeFile(this.stateFile, JSON.stringify(this.round, null, 2), { mode: 0o600 });
+    await writeFile(this.stateFile, JSON.stringify({ ...this.round, configuredPool: this.configuredPool }, null, 2), { mode: 0o600 });
+  }
+
+  nextRoundPool() {
+    return this.configuredPool;
+  }
+
+  async setNextRoundPool(value: unknown) {
+    this.configuredPool = validateSquarePool(value);
+    await this.save();
+    return this.configuredPool;
+  }
+
+  async resetNextRoundPool() {
+    return this.setNextRoundPool(defaultSquares);
   }
 
   async startRound() {
     if (this.round.status === 'live') throw new Error('A round is already live.');
-    this.round = { ...emptyRound('live'), squarePool: defaultSquares.map((square) => ({ ...square })) };
+    this.round = { ...emptyRound('live'), squarePool: this.configuredPool.map((square) => ({ ...square, trigger: { ...square.trigger } as SquareTrigger })) };
     await this.save();
     return this.round;
   }

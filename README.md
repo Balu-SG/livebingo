@@ -5,7 +5,7 @@ LiveBingo is a small Twitch-connected foundation for viewer-specific bingo cards
 ## Setup
 
 1. Create an application in the [Twitch Developer Console](https://dev.twitch.tv/console/apps). Set its OAuth redirect URL to `http://localhost:3000/auth/callback` and its category to **Website Integration**.
-2. Copy `.env.example` to `.env` and fill in `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`. Keep the redirect URI and public base URL at their localhost defaults for local testing.
+2. Copy `.env.example` to `.env` and fill in `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`. Keep the redirect URI and public base URL at their localhost defaults for local testing. Optionally set `BROADCASTER_LOGIN` to lock login to that Twitch login name, and `OPENAI_API_KEY` / `OPENAI_MODEL` for AI square suggestions.
    Add a long random `ADMIN_TOKEN` to `.env` for scripts and curl. The app does not overwrite your `.env`; after logging in through Twitch, the browser also receives a signed admin session cookie.
 3. Install dependencies and start the development server:
 
@@ -16,6 +16,8 @@ LiveBingo is a small Twitch-connected foundation for viewer-specific bingo cards
 
 4. Open [http://localhost:3000](http://localhost:3000) and log in with the Twitch account that owns the channel. This same account is used as the bot.
 5. In another Twitch account, open the logged-in account's channel and send `!bingo` in chat. The bot replies with that viewer's card link.
+
+The first successful Twitch login becomes the channel owner. Later OAuth attempts by another account are rejected with `Only the channel owner can log in here.` and do not replace the saved tokens or admin cookie. `BROADCASTER_LOGIN`, when set, is the explicit owner lock.
 
 For a production build, run `npm run build` and then `npm start`. Tokens are saved in `data/tokens.json`; keep that file private.
 
@@ -46,6 +48,10 @@ For a production build, run `npm run build` and then `npm start`. Tokens are sav
    ```
 
 The round, cards, marked squares, and winner order persist in `data/state.json`. Starting a new round resets its cards and hits. The viewer page is served from `/c/:id`; its dynamic text is rendered with `textContent`.
+
+## Streamer dashboard
+
+After logging in with the broadcaster account, open `http://localhost:3000/dashboard`. The dashboard requires the signed admin session cookie. Its square editor saves changes for the next round; manual hits, demo events, and voice triggers apply to the live round. Voice recognition is available in Chrome.
 
 ## Record the demo
 

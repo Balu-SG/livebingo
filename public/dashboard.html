@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111018">
+  <title>LiveBingo Control Room</title>
+  <link rel="stylesheet" href="/dashboard.css">
+  <script src="/dashboard.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="app-header">
+      <a class="brand" href="/"><span class="brand-icon" aria-hidden="true">✦</span> LiveBingo <span class="brand-tail">CONTROL ROOM</span></a>
+      <div class="connection"><span id="connection-dot" class="connection-dot"></span><span id="connection-label">Connecting…</span></div>
+    </header>
+
+    <section class="panel round-panel" aria-labelledby="round-title">
+      <div class="round-heading">
+        <div><p class="eyebrow">STREAM CONTROL</p><h1 id="round-title">Round controls</h1></div>
+        <span id="round-state" class="state-badge">IDLE</span>
+      </div>
+      <div class="round-actions">
+        <button id="start-round" class="button primary">Start round</button>
+        <button id="end-round" class="button danger" disabled>End round</button>
+      </div>
+      <div class="stats" aria-live="polite">
+        <div class="stat"><span id="cards-count" class="stat-number">0</span><span>Cards in play</span></div>
+        <div class="stat"><span id="hits-count" class="stat-number">0</span><span>Squares hit</span></div>
+        <div class="stat"><span id="winners-count" class="stat-number">0</span><span>Winners</span></div>
+      </div>
+      <p id="round-message" class="message" role="status"></p>
+    </section>
+
+    <div class="dashboard-columns">
+      <div class="column">
+        <section class="panel" aria-labelledby="manual-title">
+          <div class="section-heading"><div><p class="eyebrow">ONE-TAP CONTROL</p><h2 id="manual-title">Manual hits</h2></div><span id="manual-count" class="count-badge">0</span></div>
+          <p class="section-copy">Tap a square when it happens on stream.</p>
+          <div id="manual-grid" class="manual-grid"></div>
+        </section>
+
+        <section class="panel voice-panel" aria-labelledby="voice-title">
+          <div class="section-heading"><div><p class="eyebrow">SPEECH RECOGNITION</p><h2 id="voice-title">Voice triggers</h2></div><span class="mic-icon" aria-hidden="true">◉</span></div>
+          <p class="section-copy">Keep the dashboard open and let matching phrases mark their squares.</p>
+          <div class="voice-controls">
+            <button id="listen-toggle" class="button secondary" type="button">Listen to my mic</button>
+            <label class="language-label" for="speech-language">Language</label>
+            <select id="speech-language">
+              <option value="en-US" selected>English (US)</option><option value="en-GB">English (UK)</option>
+              <option value="es-ES">Español</option><option value="fr-FR">Français</option>
+              <option value="de-DE">Deutsch</option><option value="pt-BR">Português (Brasil)</option>
+              <option value="ja-JP">日本語</option><option value="hi-IN">हिन्दी</option>
+            </select>
+          </div>
+          <p id="speech-support" class="hint">Voice recognition works in Chrome. Allow microphone access when prompted.</p>
+          <div class="transcript-box"><span class="transcript-label">LIVE TRANSCRIPT</span><p id="transcript">Waiting for mic…</p></div>
+          <p id="last-match" class="last-match" aria-live="polite">Last match: none yet</p>
+          <div id="voice-square-list" class="voice-square-list"></div>
+        </section>
+      </div>
+
+      <div class="column">
+        <section class="panel demo-panel" aria-labelledby="demo-title">
+          <div class="section-heading"><div><p class="eyebrow">PREVIEW THE MOMENTS</p><h2 id="demo-title">Demo panel</h2></div><span class="sparkle" aria-hidden="true">✧</span></div>
+          <p class="section-copy">Demo triggers use the same marking path as Twitch events.</p>
+          <div id="demo-events" class="demo-events"></div>
+          <button id="create-demo-cards" class="button secondary full-width">Create 5 demo cards</button>
+          <div id="demo-cards" class="demo-cards"></div>
+        </section>
+
+        <section class="panel editor-panel" aria-labelledby="editor-title">
+          <div class="section-heading"><div><p class="eyebrow">NEXT ROUND SETUP</p><h2 id="editor-title">Square pool</h2></div><span id="pool-count" class="count-badge">0</span></div>
+          <div class="notice"><strong>Changes apply to the next round.</strong> The live round keeps its current squares.</div>
+          <label class="notes-label" for="streamer-notes">What happens on your stream?</label>
+          <textarea id="streamer-notes" rows="3" maxlength="2000" placeholder="I play Elden Ring, die to bosses a lot, and say ‘let’s go’…"></textarea>
+          <button id="suggest-squares" class="button ai-button">✦ Suggest squares with AI</button>
+          <div class="editor-toolbar">
+            <span id="pool-message" class="message" role="status">Loading square pool…</span>
+            <div class="toolbar-actions"><button id="add-square" class="button small secondary">Add square</button><button id="reset-pool" class="button small ghost">Reset defaults</button><button id="save-pool" class="button small primary">Save pool</button></div>
+          </div>
+          <div id="square-editor-list" class="square-editor-list"></div>
+        </section>
+      </div>
+    </div>
+    <footer>Leave this tab open on your second screen. Live counts update over WebSocket.</footer>
+  </main>
+</body>
+</html>
