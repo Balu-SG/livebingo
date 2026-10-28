@@ -10,6 +10,7 @@ import { eventForRole, RoundManager, type RoundEvent } from './round.js';
 import { ChatQueue } from './chat-queue.js';
 import { isAllowedBroadcaster } from './auth.js';
 import { validateSquarePool } from './squares.js';
+import { createOverlayRoundState, createOverlaySnapshot, registerOverlayPageRoute } from './overlay.js';
 
 const clientId = process.env.TWITCH_CLIENT_ID;
 const clientSecret = process.env.TWITCH_CLIENT_SECRET;
@@ -131,16 +132,7 @@ function broadcastDashboardCounts() {
   broadcast(overlaySnapshot());
 }
 
-function overlaySnapshot() {
-  return {
-    type: 'overlay_state', status: rounds.round.status,
-    cardsInPlay: Object.keys(rounds.round.cards).length,
-    winners: rounds.round.winnerOrder.slice(0, 3).map((id) => {
-      const card = rounds.round.cards[id];
-      return { user: card?.user ?? 'Viewer', rank: card?.rank ?? 0 };
-    }),
-  };
-}
+function overlaySnapshot() { return createOverlaySnapshot(rounds.round); }
 
 async function loadTokens() {
   try {
@@ -371,7 +363,7 @@ async function serveOverlayTest(request: FastifyRequest, reply: FastifyReply) {
   return reply.sendFile('overlay-test.html');
 }
 
-app.get('/overlay', async (_request, reply) => reply.sendFile('overlay.html'));
+registerOverlayPageRoute(app);
 app.get('/overlay/test', serveOverlayTest);
 
 app.get('/dashboard', serveDashboard);
@@ -533,7 +525,7 @@ app.server.on('upgrade', (request, socket, head) => {
     socketRoles.set(client, role ?? 'viewer');
     client.send(JSON.stringify(role === 'dashboard'
       ? { type: 'dashboard_state', ...dashboardSnapshot() }
-      : role === 'overlay' ? { type: 'round_state', status: rounds.round.status, hits: rounds.round.hits } : { type: 'round_state', status: rounds.round.status, hits: rounds.round.hits, card: cardId ? rounds.viewerCard(cardId) : undefined }));
+      : role === 'overlay' ? createOverlayRoundState(rounds.round) : { type: 'round_state', status: rounds.round.status, hits: rounds.round.hits, card: cardId ? rounds.viewerCard(cardId) : undefined }));
     if (role === 'overlay') client.send(JSON.stringify(overlaySnapshot()));
   });
 });

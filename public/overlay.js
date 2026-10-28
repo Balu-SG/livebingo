@@ -10,7 +10,8 @@
   panel.hidden = params.get('panel') !== '1';
   let status = 'idle', cardsInPlay = 0, topWinners = [];
   const hitQueue = [], bingoQueue = [];
-  let showingHit = false, showingBingo = false;
+  let showingHit = false, showingBingo = false, hitTimer;
+  let currentHitBatch = [];
   const soundOn = params.get('sound') === '1';
   let audio;
   function tone(frequency, start, duration, type = 'sine', volume = .06) {
@@ -34,13 +35,30 @@
     const list = panel.querySelector('.panel-winners'); list.replaceChildren();
     topWinners.slice(0, 3).forEach((winner) => { const item = document.createElement('li'); item.textContent = `#${winner.rank} ${winner.user}`; list.append(item); });
   }
+  function renderHitBatch(hits) {
+    if (hits.length >= 3) {
+      const labels = hits.slice(0, 3).map((hit) => hit.label);
+      toastText.textContent = `🎯 ${hits.length} squares hit: ${labels.join(', ')}${hits.length > 3 ? ', …' : ''}`;
+    } else {
+      const hit = hits[0];
+      const noun = hit.markedCards === 1 ? 'card' : 'cards';
+      toastText.textContent = `🎯 ${hit.label} — ${hit.markedCards} ${noun} marked`;
+    }
+  }
+  function armHitTimer(delay) {
+    clearTimeout(hitTimer);
+    hitTimer = setTimeout(() => {
+      toast.classList.remove('visible'); toast.setAttribute('aria-hidden', 'true');
+      setTimeout(() => { showingHit = false; currentHitBatch = []; showNextHit(); }, 380);
+    }, delay);
+  }
   function showNextHit() {
     if (showingHit || !hitQueue.length) return;
     showingHit = true;
-    const item = hitQueue.shift();
-    toastText.textContent = `🎯 ${item.label} — ${item.markedCards} cards marked`;
-    toast.setAttribute('aria-hidden', 'false'); toast.classList.add('visible'); ding();
-    setTimeout(() => { toast.classList.remove('visible'); toast.setAttribute('aria-hidden', 'true'); setTimeout(() => { showingHit = false; showNextHit(); }, 380); }, 6000);
+    currentHitBatch = hitQueue.length >= 3 ? hitQueue.splice(0) : [hitQueue.shift()];
+    renderHitBatch(currentHitBatch);
+    toast.setAttribute('aria-hidden', 'false'); toast.classList.add('visible');
+    armHitTimer(hitQueue.length ? 2000 : 6000);
   }
   const canvas = document.querySelector('#confetti'), ctx = canvas.getContext('2d');
   let particles = [], confettiFrame;
@@ -74,7 +92,15 @@
       const winners = event.topWinners ?? event.winnersList ?? (Array.isArray(event.winners) ? event.winners : undefined);
       topWinners = winners ?? topWinners; updatePanel();
     }
-    if (event.type === 'square_hit') { hitQueue.push({ label: String(event.label ?? 'Square'), markedCards: Number(event.markedCards ?? 0) }); showNextHit(); }
+    if (event.type === 'square_hit') {
+      hitQueue.push({ label: String(event.label ?? 'Square'), markedCards: Number(event.markedCards ?? 0) }); ding();
+      if (!showingHit) showNextHit();
+      else if (hitQueue.length >= 3) {
+        currentHitBatch.push(...hitQueue.splice(0));
+        renderHitBatch(currentHitBatch);
+        armHitTimer(2000);
+      } else armHitTimer(2000);
+    }
     if (event.type === 'bingo') { bingoQueue.push({ user: String(event.user ?? 'A viewer'), rank: Number(event.rank ?? 1) }); topWinners = [...topWinners, bingoQueue.at(-1)].slice(0, 3); updatePanel(); showNextBingo(); }
   }
   let retry = 500;
