@@ -29,6 +29,7 @@ body {
 .topbar { padding: 6px 2px 24px; }
 .brand { display: flex; align-items: center; gap: 9px; font-weight: 850; letter-spacing: -.03em; }
 .brand-mark { color: #d2a2ff; font-size: 1.3rem; }
+#channel-name { color: #d8d1e5; font-size: .76rem; font-weight: 650; }
 .round-status { color: #a8a1ba; font-size: .78rem; font-weight: 650; }
 .card-panel { padding: 20px; border: 1px solid #363149; border-radius: 22px; background: linear-gradient(145deg, #1d1a2a, #191723); box-shadow: 0 22px 70px #0005; }
 .heading { gap: 12px; margin-bottom: 18px; }
@@ -58,6 +59,11 @@ h1 { overflow-wrap: anywhere; margin: 0; font-size: clamp(1.35rem, 6vw, 1.9rem);
 .tile.hit::after { position: absolute; inset: 0; display: grid; place-items: center; content: "✓"; color: #fff; font-size: clamp(1.6rem, 9vw, 2.8rem); font-weight: 1000; text-shadow: 0 2px 12px #d58cff; opacity: .8; animation: stamp .22s cubic-bezier(.15, 1.7, .4, 1) both; pointer-events: none; }
 .tile.hit span { position: relative; z-index: 1; text-shadow: 0 1px 5px #1c0929; }
 .hint { margin: 17px 2px 0; color: #a9a3b7; text-align: center; font-size: .8rem; }
+.marked-progress { margin: -8px 0 14px; color: #ddd7e8; text-align: right; font-size: .78rem; font-variant-numeric: tabular-nums; }
+.how-it-works { margin-top: 14px; color: #ded9e8; font-size: .82rem; }
+.how-it-works summary { width: fit-content; cursor: pointer; color: #e0c8ff; font-weight: 750; }
+.how-it-works summary:focus-visible { outline: 3px solid #d8a1ff; outline-offset: 3px; }
+.how-it-works p { margin: 8px 0 0; color: #d0cadb; line-height: 1.55; }
 .bingo-banner { display: flex; justify-content: center; align-items: center; gap: 9px; margin: 0 0 16px; padding: 12px; border: 1px solid #f9cf68; border-radius: 13px; background: linear-gradient(100deg, #65418d, #8f58bc, #65418d); color: #fff5c8; font-size: clamp(1.25rem, 7vw, 2rem); font-weight: 1000; letter-spacing: .08em; box-shadow: 0 0 28px #c786ff66; animation: banner-in .45s cubic-bezier(.15, 1.4, .4, 1) both; }
 .banner-sparkle { color: #ffe98a; }
 .winner-rank { font-size: .68rem; letter-spacing: 0; color: #fff; }
@@ -75,5 +81,5 @@ footer { margin-top: auto; padding: 22px 0 4px; color: #777287; text-align: cent
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

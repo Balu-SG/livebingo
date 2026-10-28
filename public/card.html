@@ -11,7 +11,7 @@
 <body>
   <main class="page">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> LiveBingo</div>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> LiveBingo <span id="channel-name"></span></div>
       <span id="round-status" class="round-status">Loading round…</span>
     </header>
     <section class="card-panel" aria-labelledby="viewer-name">
@@ -22,13 +22,14 @@
         </div>
         <span class="live-dot" aria-label="Live round"></span>
       </div>
+      <p id="marked-progress" class="marked-progress">0/24 squares</p>
       <div id="bingo-banner" class="bingo-banner" role="status" hidden>
         <span class="banner-sparkle" aria-hidden="true">✦</span>
         <span>BINGO!</span>
         <span id="winner-rank" class="winner-rank"></span>
       </div>
       <div id="bingo-grid" class="bingo-grid" role="grid" aria-label="Your 5 by 5 bingo card"></div>
-      <p class="hint">Squares stamp themselves as the stream unfolds.</p>
+      <details class="how-it-works"><summary>How it works</summary><p>Squares mark automatically when they happen on stream. Get five in a row, column, or diagonal to win. Type <strong>!bingo</strong> in chat to join a new round.</p></details>
       <p id="error-message" class="error-message" role="alert" hidden></p>
     </section>
     <footer>Made for the moments chat remembers.</footer>

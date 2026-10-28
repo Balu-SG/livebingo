@@ -10,10 +10,10 @@
   <main>
     <h1>LiveBingo</h1>
     <p>Personal bingo cards, powered by what happens on stream.</p>
-    <p id="account">Checking login status…</p>
+    <p id="account" role="status" aria-live="polite">Checking login status…</p>
     <p id="eventsub" class="status"></p>
     <p id="subscriptions">EventSub subscriptions: checking…</p>
-    <a class="button" href="/auth/login">Log in with Twitch</a>
+    <a id="login-link" class="button" href="/auth/login">Log in with Twitch</a>
     <p><a id="dashboard-link" href="/dashboard" hidden>Open streamer dashboard</a></p>
   </main>
   <script>
@@ -21,8 +21,11 @@
       try {
         const response = await fetch('/status', { cache: 'no-store' });
         const status = await response.json();
-        document.querySelector('#account').textContent = status.loggedIn ? `Logged in as ${status.username}` : 'Not logged in yet.';
-        document.querySelector('#dashboard-link').hidden = !status.loggedIn;
+        document.querySelector('#account').textContent = status.sessionExpired
+          ? 'Twitch session expired — please log in again.'
+          : status.loggedIn ? `Logged in as ${status.username}` : 'Not connected. Log in with Twitch to connect your channel and open the dashboard.';
+        document.querySelector('#dashboard-link').hidden = !status.loggedIn || status.sessionExpired;
+        document.querySelector('#login-link').textContent = status.sessionExpired || !status.loggedIn ? 'Log in with Twitch' : 'Reconnect Twitch';
         document.querySelector('#eventsub').textContent = `EventSub connected: ${status.eventSubConnected ? 'yes' : 'no'}`;
         const subscriptions = status.activeSubscriptions.length ? status.activeSubscriptions.join(', ') : 'none active';
         document.querySelector('#subscriptions').textContent = `Active subscriptions: ${subscriptions}`;

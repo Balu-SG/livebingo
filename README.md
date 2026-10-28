@@ -1,62 +1,95 @@
 # LiveBingo
 
-LiveBingo is a small Twitch-connected foundation for viewer-specific bingo cards.
+LiveBingo gives each viewer a personal 5×5 bingo card that marks itself as moments happen on a Twitch stream. The streamer controls the round from a browser dashboard, and an optional transparent overlay brings hits and winners into OBS.
 
-## Setup
+Features:
 
-1. Create an application in the [Twitch Developer Console](https://dev.twitch.tv/console/apps). Set its OAuth redirect URL to `http://localhost:3000/auth/callback` and its category to **Website Integration**.
-2. Copy `.env.example` to `.env` and fill in `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`. Keep the redirect URI and public base URL at their localhost defaults for local testing. Optionally set `BROADCASTER_LOGIN` to lock login to that Twitch login name, and `OPENAI_API_KEY` / `OPENAI_MODEL` for AI square suggestions.
-   Add a long random `ADMIN_TOKEN` to `.env` for scripts and curl. The app does not overwrite your `.env`; after logging in through Twitch, the browser also receives a signed admin session cookie.
-3. Install dependencies and start the development server:
+- Twitch chat `!bingo` cards with live square marking and winner ranks.
+- EventSub, chat-burst, voice, and manual square triggers.
+- Keyboard-accessible streamer dashboard and a transparent OBS overlay.
+- Local demo tools for previewing rounds without waiting for stream events.
+- Fastify serves plain HTML, CSS, and JavaScript; no frontend framework.
 
-   ```sh
-   npm install
-   npm run dev
-   ```
+## Screenshots / GIF
 
-4. Open [http://localhost:3000](http://localhost:3000) and log in with the Twitch account that owns the channel. This same account is used as the bot.
-5. In another Twitch account, open the logged-in account's channel and send `!bingo` in chat. The bot replies with that viewer's card link.
+<!-- TODO: Add dashboard and viewer card screenshots or a short demo GIF. -->
 
-The first successful Twitch login becomes the channel owner. Later OAuth attempts by another account are rejected with `Only the channel owner can log in here.` and do not replace the saved tokens or admin cookie. `BROADCASTER_LOGIN`, when set, is the explicit owner lock.
+![LiveBingo dashboard and OBS overlay preview](screenshots/livebingo-demo.gif)
 
-For a production build, run `npm run build` and then `npm start`. Tokens are saved in `data/tokens.json`; keep that file private.
+## Twitch app settings
 
-## Start and test a round
+Create an application in the [Twitch Developer Console](https://dev.twitch.tv/console/apps) and set its category to **Website Integration**. Add both OAuth redirect URLs to the app:
 
-1. Start the app with `npm run dev` and log in as the streamer/bot account at `http://localhost:3000`.
-2. Start a round from a terminal:
+- Local: `http://localhost:3000/auth/callback`
+- Render: `https://livebingo.onrender.com/auth/callback`
 
-   ```sh
-   curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:3000/api/round/start
-   ```
+The Render URL assumes the service name `livebingo`; if you choose a different service name or custom domain, update the redirect URL and environment values to match it.
 
-3. From a second Twitch account, open the streamer's chat and send `!bingo`. The bot creates one card for that viewer and replies with its link. Open the link in another browser; its 5×5 board updates over WebSocket. To open it on a phone on the same Wi-Fi, set `PUBLIC_BASE_URL` in `.env` to the computer's LAN URL (for example `http://192.168.1.20:3000`) and restart the app before requesting a card.
-4. To test visible stamps without waiting for stream events, hit the manual squares while the round is live:
+## Environment variables
 
-   ```sh
-   for square in rage-moment snack-break technical-pause big-play streamer-laughs game-change missed-shot unexpected-win loud-noise streamer-sings game-glitch water-break; do
-     curl -sS -X POST -H "X-Admin-Token: $ADMIN_TOKEN" "http://localhost:3000/api/squares/$square/hit"
-   done
-   ```
+Copy `.env.example` to `.env` for local use. On Render, configure the same values in the service environment.
 
-   Only manual squares can be hit through this endpoint. Follows, subscriptions, gift subs, raids, cheers, and chat bursts are detected automatically from EventSub while logged in. Chat burst squares count distinct viewers inside their configured time window.
+| Variable | Purpose | Local default / notes |
+| --- | --- | --- |
+| `TWITCH_CLIENT_ID` | Twitch application client ID | Required |
+| `TWITCH_CLIENT_SECRET` | Twitch application secret | Required; keep private |
+| `TWITCH_REDIRECT_URI` | OAuth callback URL | `http://localhost:3000/auth/callback` |
+| `PUBLIC_BASE_URL` | Public origin used in viewer card links | `http://localhost:3000` |
+| `ADMIN_TOKEN` | Admin access for scripts and API calls | Set a long random value |
+| `BROADCASTER_LOGIN` | Optional login-name restriction | Empty allows the first Twitch login to establish the channel owner |
+| `OPENAI_API_KEY` | Optional AI square suggestions | Empty disables AI suggestions |
+| `OPENAI_MODEL` | Model used for square suggestions | `gpt-4o-mini` |
+| `DATA_DIR` | Directory for `tokens.json` and `state.json` | `./data` |
+| `PORT` | HTTP port | `3000`; Render provides its own port |
 
-5. End the round when finished:
+## Run locally
 
-   ```sh
-   curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:3000/api/round/end
-   ```
+```sh
+npm ci
+cp .env.example .env
+# Fill in TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, and ADMIN_TOKEN in .env.
+npm run dev
+```
 
-The round, cards, marked squares, and winner order persist in `data/state.json`. Starting a new round resets its cards and hits. The viewer page is served from `/c/:id`; its dynamic text is rendered with `textContent`.
+Open [http://localhost:3000](http://localhost:3000) and select **Log in with Twitch** using the broadcaster account. The home page reports whether Twitch is connected and offers login again if the saved session expires. The dashboard is at [http://localhost:3000/dashboard](http://localhost:3000/dashboard). Viewers type `!bingo` in the channel chat to receive a card link.
 
-## Streamer dashboard
-
-After logging in with the broadcaster account, open `http://localhost:3000/dashboard`. The dashboard requires the signed admin session cookie. Its square editor saves changes for the next round; manual hits, demo events, and voice triggers apply to the live round. Voice recognition is available in Chrome.
+The server stores its files in `DATA_DIR` (default `./data`). Keep `tokens.json` private. `/healthz` is an unauthenticated health check.
 
 ## OBS overlay
 
-In OBS, add **Sources → + → Browser**. Set the URL to `http://localhost:3000/overlay?panel=1&sound=1`, width to **1920**, and height to **1080**. The overlay has a transparent background; remove `panel=1` or `sound=1` to hide the mini panel or disable generated sound. OBS may need **Control audio via OBS** enabled for browser source audio. The admin-only design preview is at `http://localhost:3000/overlay/test` and includes client-side buttons for single events and queued sequences.
+In OBS, choose **Sources → + → Browser**. Set the URL to `http://localhost:3000/overlay?panel=1&sound=1`, width to **1920**, and height to **1080**. The overlay background is transparent. `panel=1` enables the mini panel, and `sound=1` enables generated Web Audio sounds. OBS may need **Control audio via OBS** enabled. The admin-only design preview is `http://localhost:3000/overlay/test`.
 
-## Record the demo
+## Demo mode
 
-With the app running and logged in as the streamer, run `npm run demo`. It reads `ADMIN_TOKEN` and `PUBLIC_BASE_URL` from `.env`, starts a fresh round, creates five fake viewers, and plays follow, chat-burst, raid, cheer, and manual hits until a card wins. It prints the card links and leaves the round live for recording. To use curl, export the same token in your terminal as `ADMIN_TOKEN`.
+With the server running and `ADMIN_TOKEN` set in `.env`, run:
+
+```sh
+npm run demo
+```
+
+The script starts a fresh round, creates five demo cards, and fires sample triggers until one wins. It prints the card links and leaves the round live. The demo resets the current round, so use it for judging or a local preview rather than during a live game.
+
+## Deploy to Render
+
+1. Push this repository to GitHub and create a Render **Blueprint** from it. `render.yaml` defines a Node web service named `livebingo`, with `npm ci && npm run build`, `npm start`, and `/healthz` as its health check.
+2. Set the Twitch client ID and secret, a long random `ADMIN_TOKEN`, and any optional broadcaster login or OpenAI key when Render prompts for unsynchronized environment values.
+3. In the Twitch Developer Console, add `https://livebingo.onrender.com/auth/callback` as an OAuth redirect URL. The blueprint sets `TWITCH_REDIRECT_URI` to that callback and `PUBLIC_BASE_URL` to `https://livebingo.onrender.com`. Keep both values in sync with the deployed service URL.
+4. Deploy the service and wait for `/healthz` to report healthy. Open `https://livebingo.onrender.com`, log in with Twitch, then open `/dashboard`.
+5. To persist Twitch tokens and round state across deploys, attach a persistent disk later and mount it at `/var/data`; the blueprint already sets `DATA_DIR=/var/data`.
+
+Render free web services sleep after a period without traffic (currently around 15 minutes) and have an ephemeral filesystem. EventSub reconnects automatically while the service is running, but the free instance can sleep when idle and files under `/var/data` are lost on restart without an attached persistent disk. Use a persistent disk on a plan that supports it if saved tokens and round state must survive restarts.
+
+## Tests
+
+```sh
+npm test
+npm run build
+```
+
+## How it was built with Codex
+
+TODO: Add my notes about the Codex build process.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

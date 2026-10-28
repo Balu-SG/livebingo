@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: livebingo
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+      - key: TWITCH_REDIRECT_URI
+        value: https://livebingo.onrender.com/auth/callback
+      - key: PUBLIC_BASE_URL
+        value: https://livebingo.onrender.com
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: BROADCASTER_LOGIN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini

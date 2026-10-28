@@ -281,8 +281,22 @@ async function refreshDashboard() {
   try {
     applySnapshot(await api('/api/dashboard/state'));
   } catch (error) {
+    if (error.message.includes('Twitch session expired')) showSessionExpired();
     setMessage('#round-message', error.message, true);
   }
+}
+
+function showSessionExpired() {
+  const notice = $('#session-warning');
+  notice.textContent = 'Twitch session expired — please log in again. Log in with Twitch, then reopen the dashboard.';
+  notice.hidden = false;
+}
+
+async function checkTwitchSession() {
+  try {
+    const response = await fetch('/status', { cache: 'no-store' });
+    if (response.ok && (await response.json()).sessionExpired) showSessionExpired();
+  } catch (error) { console.warn('Could not check Twitch session status', error); }
 }
 
 $('#start-round').addEventListener('click', async () => {
@@ -470,4 +484,6 @@ if (!recognitionApi) {
 }
 
 refreshDashboard();
+checkTwitchSession();
+setInterval(checkTwitchSession, 15_000);
 connectSocket();

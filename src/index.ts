@@ -26,8 +26,9 @@ const scopes = [
 ];
 const root = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(root, '../public');
-const tokenFile = path.resolve(root, '../data/tokens.json');
-const stateFile = path.resolve(root, '../data/state.json');
+const dataDir = path.resolve(process.env.DATA_DIR ?? path.resolve(root, '../data'));
+const tokenFile = path.join(dataDir, 'tokens.json');
+const stateFile = path.join(dataDir, 'state.json');
 const app = Fastify({ logger: true });
 const rounds = new RoundManager(stateFile);
 const webSocketServer = new WebSocketServer({ noServer: true });
@@ -38,8 +39,10 @@ type TokenData = { access_token: string; refresh_token: string; expires_at: numb
 let tokens: TokenData | null = null;
 let eventSocket: WebSocket | null = null;
 let eventSubConnected = false;
+let sessionExpired = false;
 const activeSubscriptions = new Set<string>();
 let reconnectTimer: NodeJS.Timeout | undefined;
+let reconnectAttempts = 0;
 let pendingOAuthState: string | undefined;
 
 rounds.onEvent((event) => {
@@ -150,19 +153,28 @@ async function saveTokens() {
 
 async function refreshAccessToken() {
   if (!tokens || !clientId || !clientSecret) throw new Error('Twitch credentials are not configured.');
-  const response = await fetch('https://id.twitch.tv/oauth2/token', {
-    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token', refresh_token: tokens.refresh_token }),
-  });
-  if (!response.ok) throw new Error(`Twitch token refresh failed: ${response.status} ${await response.text()}`);
-  const refreshed = await response.json() as { access_token: string; refresh_token?: string; expires_in: number };
+  let refreshed: { access_token: string; refresh_token?: string; expires_in: number };
+  try {
+    const response = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token', refresh_token: tokens.refresh_token }),
+    });
+    if (!response.ok) throw new Error(`Twitch token refresh failed: ${response.status} ${await response.text()}`);
+    refreshed = await response.json() as { access_token: string; refresh_token?: string; expires_in: number };
+  } catch (error) {
+    sessionExpired = true;
+    app.log.error({ err: error }, 'Twitch session expired; log in again');
+    throw new Error('Twitch session expired — please log in again');
+  }
   tokens = { ...tokens, access_token: refreshed.access_token, refresh_token: refreshed.refresh_token ?? tokens.refresh_token, expires_at: Date.now() + refreshed.expires_in * 1000 };
   await saveTokens();
+  sessionExpired = false;
   app.log.info('Twitch access token refreshed');
 }
 
 async function getAccessToken() {
   if (!tokens) throw new Error('Log in with Twitch first.');
+  if (sessionExpired) throw new Error('Twitch session expired — please log in again');
   if (tokens.expires_at < Date.now() + 60_000) await refreshAccessToken();
   return tokens.access_token;
 }
@@ -178,10 +190,12 @@ async function helix(pathname: string, init: RequestInit = {}) {
 
 function scheduleReconnect() {
   if (reconnectTimer || !tokens) return;
+  const delay = Math.min(1000 * (2 ** reconnectAttempts), 30_000);
+  reconnectAttempts += 1;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = undefined;
     connectEventSub();
-  }, 3000);
+  }, delay);
 }
 
 function connectEventSub(url = 'wss://eventsub.wss.twitch.tv/ws', transferFrom?: WebSocket) {
@@ -194,8 +208,12 @@ function connectEventSub(url = 'wss://eventsub.wss.twitch.tv/ws', transferFrom?:
       const type = message.metadata?.message_type;
       if (type === 'session_welcome') {
         eventSubConnected = true;
+        reconnectAttempts = 0;
         app.log.info('EventSub session welcomed');
-        if (transferFrom) transferFrom.close();
+        if (transferFrom) {
+          // Twitch moves the existing subscriptions to this socket during session_reconnect.
+          transferFrom.close();
+        }
         else await subscribeToChat(message.payload.session.id);
       } else if (type === 'session_keepalive') {
         app.log.debug('EventSub keepalive received');
@@ -335,25 +353,28 @@ async function suggestSquarePool(notes: string) {
 
 app.register(fastifyStatic, { root: publicDir });
 
+app.get('/healthz', async () => ({ ok: true }));
+
 app.get('/status', async () => ({
   loggedIn: Boolean(tokens),
   username: tokens?.user.display_name ?? null,
+  sessionExpired,
   eventSubConnected,
   activeSubscriptions: [...activeSubscriptions].sort(),
 }));
 
 app.get<{ Params: { id: string } }>('/c/:id', async (request, reply) => {
-  if (!rounds.getCard(request.params.id)) return reply.code(404).type('text/plain').send('Bingo card not found. Ask in chat with !bingo during a live round to create one.');
   return reply.sendFile('card.html');
 });
 
 app.get<{ Params: { id: string } }>('/api/cards/:id', async (request, reply) => {
   const card = rounds.viewerCard(request.params.id);
-  if (!card) return reply.code(404).send({ error: 'Bingo card not found.' });
-  return card;
+  if (!card) return reply.code(404).send({ error: 'This round has ended — type !bingo in chat for a new card.' });
+  return { ...card, channelName: tokens?.user.display_name ?? '' };
 });
 
 async function serveDashboard(request: FastifyRequest, reply: FastifyReply) {
+  if (!tokens) return reply.redirect('/');
   if (!hasAdminSession(request)) return reply.redirect('/auth/login');
   return reply.sendFile('dashboard.html');
 }
@@ -561,10 +582,14 @@ app.get<{ Querystring: { code?: string; error?: string; state?: string } }>('/au
     return reply.code(403).type('text/plain').send('Only the channel owner can log in here.');
   }
   tokens = { ...result, expires_at: Date.now() + result.expires_in * 1000, user: userBody.data[0] };
+  sessionExpired = false;
   await saveTokens();
   app.log.info({ user: tokens.user.login }, 'Logged in with Twitch');
   const secureCookie = redirectUri.startsWith('https://') || publicBaseUrl.startsWith('https://') ? '; Secure' : '';
   reply.header('set-cookie', `livebingo_admin=${signedSession(tokens.user.id)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800${secureCookie}`);
+  clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
+  reconnectAttempts = 0;
   if (eventSocket) eventSocket.close();
   connectEventSub();
   return reply.redirect('/');
@@ -581,7 +606,7 @@ async function start() {
     app.log.info({ user: tokens.user.login }, 'Loaded saved Twitch login');
     connectEventSub();
   }
-  await app.listen({ host: '0.0.0.0', port: 3000 });
+  await app.listen({ host: '0.0.0.0', port: Number(process.env.PORT ?? 3000) });
 }
 
 start().catch((error) => {
