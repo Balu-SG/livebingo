@@ -73,11 +73,11 @@ The script starts a fresh round, creates five demo cards, and fires sample trigg
 
 1. Push this repository to GitHub and create a Render **Blueprint** from it. `render.yaml` defines a Node web service named `livebingo`, with `npm ci && npm run build`, `npm start`, and `/healthz` as its health check.
 2. Set the Twitch client ID and secret, a long random `ADMIN_TOKEN`, and any optional broadcaster login or OpenAI key when Render prompts for unsynchronized environment values.
-3. In the Twitch Developer Console, add `https://livebingo.onrender.com/auth/callback` as an OAuth redirect URL. The blueprint sets `TWITCH_REDIRECT_URI` to that callback and `PUBLIC_BASE_URL` to `https://livebingo.onrender.com`. Keep both values in sync with the deployed service URL.
+3. In the Twitch Developer Console, add `https://livebingo.onrender.com/auth/callback` as an OAuth redirect URL. When Render asks for the blueprint's secret values, set `TWITCH_REDIRECT_URI` to that callback and `PUBLIC_BASE_URL` to the service URL. If Render assigns a different URL, use that one everywhere instead.
 4. Deploy the service and wait for `/healthz` to report healthy. Open `https://livebingo.onrender.com`, log in with Twitch, then open `/dashboard`.
-5. To persist Twitch tokens and round state across deploys, attach a persistent disk later and mount it at `/var/data`; the blueprint already sets `DATA_DIR=/var/data`.
+5. To persist Twitch tokens and round state across deploys, attach a persistent disk (paid plans), mount it at `/var/data` and set `DATA_DIR=/var/data`.
 
-Render free web services sleep after a period without traffic (currently around 15 minutes) and have an ephemeral filesystem. EventSub reconnects automatically while the service is running, but the free instance can sleep when idle and files under `/var/data` are lost on restart without an attached persistent disk. Use a persistent disk on a plan that supports it if saved tokens and round state must survive restarts.
+Render free web services sleep after a period without traffic (currently around 15 minutes) and have an ephemeral filesystem. EventSub reconnects automatically while the service is running, but the free instance can sleep when idle and saved tokens and round state are lost on restart without an attached persistent disk. Use a persistent disk on a plan that supports it if saved tokens and round state must survive restarts.
 
 ## Tests
 

@@ -9,16 +9,14 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data
       - key: TWITCH_CLIENT_ID
         sync: false
       - key: TWITCH_CLIENT_SECRET
         sync: false
       - key: TWITCH_REDIRECT_URI
-        value: https://livebingo.onrender.com/auth/callback
+        sync: false
       - key: PUBLIC_BASE_URL
-        value: https://livebingo.onrender.com
+        sync: false
       - key: ADMIN_TOKEN
         sync: false
       - key: BROADCASTER_LOGIN
