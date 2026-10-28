@@ -22,8 +22,16 @@ export type Round = {
 };
 
 export type RoundEvent =
-  | { type: 'square_hit'; squareId: string; label: string; at: string }
+  | { type: 'square_hit'; squareId: string; label: string; at: string; markedCards: number }
   | { type: 'bingo'; user: string; cardId: string; rank: number };
+
+export function eventForRole(event: RoundEvent, role: string | undefined): RoundEvent | Omit<Extract<RoundEvent, { type: 'bingo' }>, 'cardId'> {
+  if (event.type === 'bingo' && role !== 'dashboard') {
+    const { cardId: _cardId, ...publicEvent } = event;
+    return publicEvent;
+  }
+  return event;
+}
 
 export function generateCard(pool: Square[], seed: string): string[] {
   if (pool.length < 24) throw new Error('A bingo card needs at least 24 available squares.');
@@ -149,7 +157,8 @@ export class RoundManager {
 
     const at = new Date().toISOString();
     this.round.hits[squareId] = at;
-    const events: RoundEvent[] = [{ type: 'square_hit', squareId, label: square.label, at }];
+    const markedCards = Object.values(this.round.cards).filter((card) => card.squareIds.includes(squareId)).length;
+    const events: RoundEvent[] = [{ type: 'square_hit', squareId, label: square.label, at, markedCards }];
     const hitIds = new Set(Object.keys(this.round.hits));
     for (const card of Object.values(this.round.cards)) {
       if (!card.wonAt && hasBingo(card.squareIds, hitIds)) {

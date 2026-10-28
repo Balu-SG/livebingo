@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LiveBingo OBS overlay</title>
+  <link rel="stylesheet" href="/overlay.css">
+</head>
+<body>
+  <main id="overlay" aria-live="polite">
+    <section id="hit-toast" class="toast" aria-hidden="true"><span class="toast-text"></span></section>
+    <section id="bingo-celebration" class="celebration" aria-hidden="true">
+      <canvas id="confetti"></canvas>
+      <div class="celebration-copy"><span class="bingo-word">BINGO!</span><span class="winner-name"></span><span class="winner-rank"></span></div>
+    </section>
+    <aside id="mini-panel" class="mini-panel" hidden>
+      <h2>LIVE BINGO</h2><div class="panel-status">Round <b>—</b></div><div class="panel-cards">Cards in play <b>0</b></div>
+      <ol class="panel-winners"></ol>
+    </aside>
+  </main>
+  <script src="/overlay.js" defer></script>
+</body>
+</html>

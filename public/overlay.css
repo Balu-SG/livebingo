@@ -1,0 +1,26 @@
+:root { color-scheme: dark; font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+#overlay { position: relative; width: 100vw; height: 100vh; pointer-events: none; color: #fff; }
+.toast, .celebration-copy, .mini-panel { background: rgba(8, 11, 20, .88); border: 2px solid #a6ff00; box-shadow: 0 0 22px rgba(166,255,0,.28); text-shadow: 0 2px 3px #000; }
+.toast { position: absolute; left: 3.2%; bottom: 5%; max-width: 48%; padding: 18px 26px; border-radius: 12px; font: 800 32px/1.15 system-ui, sans-serif; transform: translateX(-24px); opacity: 0; transition: transform .35s ease, opacity .35s ease; }
+.toast.visible { transform: translateX(0); opacity: 1; }
+.toast-text { display: block; }
+.mini-panel { position: absolute; top: 3%; right: 3%; width: 300px; padding: 16px 20px; border-radius: 12px; font: 700 18px/1.35 system-ui, sans-serif; }
+.mini-panel h2 { margin: 0 0 10px; color: #a6ff00; font-size: 20px; letter-spacing: .08em; }
+.mini-panel b { float: right; text-transform: capitalize; }
+.panel-winners { margin: 10px 0 0; padding-left: 24px; color: #d8ff9b; }
+.panel-winners li { padding: 2px 0; }
+.celebration { position: absolute; inset: 0; display: grid; place-items: center; visibility: hidden; opacity: 0; transition: opacity .25s ease, visibility .25s; }
+.celebration.visible { visibility: visible; opacity: 1; }
+.celebration-copy { display: flex; align-items: center; flex-direction: column; gap: 8px; min-width: 460px; padding: 28px 56px; border-radius: 22px; z-index: 1; animation: pop .55s cubic-bezier(.2,1.5,.4,1) both; }
+.bingo-word { color: #a6ff00; font-size: clamp(78px, 11vw, 150px); line-height: .95; letter-spacing: .06em; -webkit-text-stroke: 2px #111; }
+.winner-name { max-width: 780px; overflow-wrap: anywhere; font: 800 40px/1.15 system-ui, sans-serif; text-align: center; }
+.winner-rank { color: #ffdf5d; font: 800 28px/1 system-ui, sans-serif; }
+#confetti { position: absolute; inset: 0; width: 100%; height: 100%; }
+@keyframes pop { from { transform: scale(.72); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: opacity .15s linear, visibility .15s linear !important; }
+  .toast, .toast.visible { transform: none; }
+  #confetti { display: none; }
+}

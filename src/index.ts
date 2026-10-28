@@ -6,7 +6,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket, { WebSocketServer } from 'ws';
-import { RoundManager } from './round.js';
+import { eventForRole, RoundManager, type RoundEvent } from './round.js';
 import { ChatQueue } from './chat-queue.js';
 import { isAllowedBroadcaster } from './auth.js';
 import { validateSquarePool } from './squares.js';
@@ -30,6 +30,7 @@ const stateFile = path.resolve(root, '../data/state.json');
 const app = Fastify({ logger: true });
 const rounds = new RoundManager(stateFile);
 const webSocketServer = new WebSocketServer({ noServer: true });
+const socketRoles = new WeakMap<WebSocket, string>();
 
 type TwitchUser = { id: string; login: string; display_name: string };
 type TokenData = { access_token: string; refresh_token: string; expires_at: number; user: TwitchUser };
@@ -99,9 +100,11 @@ async function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
 }
 
 function broadcast(event: unknown) {
-  const message = JSON.stringify(event);
   for (const socket of webSocketServer.clients) {
-    if (socket.readyState === WebSocket.OPEN) socket.send(message);
+    if (socket.readyState !== WebSocket.OPEN) continue;
+    const role = socketRoles.get(socket);
+    const outgoing = (event as RoundEvent).type === 'bingo' ? eventForRole(event as RoundEvent, role) : event;
+    socket.send(JSON.stringify(outgoing));
   }
 }
 
@@ -125,6 +128,18 @@ function dashboardSnapshot() {
 
 function broadcastDashboardCounts() {
   broadcast({ type: 'dashboard_counts', ...dashboardCounts() });
+  broadcast(overlaySnapshot());
+}
+
+function overlaySnapshot() {
+  return {
+    type: 'overlay_state', status: rounds.round.status,
+    cardsInPlay: Object.keys(rounds.round.cards).length,
+    winners: rounds.round.winnerOrder.slice(0, 3).map((id) => {
+      const card = rounds.round.cards[id];
+      return { user: card?.user ?? 'Viewer', rank: card?.rank ?? 0 };
+    }),
+  };
 }
 
 async function loadTokens() {
@@ -351,6 +366,14 @@ async function serveDashboard(request: FastifyRequest, reply: FastifyReply) {
   return reply.sendFile('dashboard.html');
 }
 
+async function serveOverlayTest(request: FastifyRequest, reply: FastifyReply) {
+  if (!hasAdminSession(request)) return reply.redirect('/auth/login');
+  return reply.sendFile('overlay-test.html');
+}
+
+app.get('/overlay', async (_request, reply) => reply.sendFile('overlay.html'));
+app.get('/overlay/test', serveOverlayTest);
+
 app.get('/dashboard', serveDashboard);
 app.get('/dashboard.html', serveDashboard);
 
@@ -392,6 +415,7 @@ app.post('/api/round/start', { preHandler: requireAdmin }, async (_request, repl
     const round = await rounds.startRound();
     broadcast({ type: 'round_state', status: round.status, hits: round.hits });
     broadcast({ type: 'dashboard_state', ...dashboardSnapshot() });
+    broadcast(overlaySnapshot());
     app.log.info('Bingo round started');
     return { status: round.status, squares: round.squarePool.length };
   } catch (error) {
@@ -404,6 +428,7 @@ app.post('/api/round/end', { preHandler: requireAdmin }, async (_request, reply)
     await rounds.endRound();
     broadcast({ type: 'round_state', status: rounds.round.status, hits: rounds.round.hits });
     broadcast({ type: 'dashboard_state', ...dashboardSnapshot() });
+    broadcast(overlaySnapshot());
     app.log.info('Bingo round ended');
     return { status: rounds.round.status, winners: rounds.round.winnerOrder.length };
   } catch (error) {
@@ -505,9 +530,11 @@ app.server.on('upgrade', (request, socket, head) => {
   }
   webSocketServer.handleUpgrade(request, socket, head, (client) => {
     webSocketServer.emit('connection', client, request);
+    socketRoles.set(client, role ?? 'viewer');
     client.send(JSON.stringify(role === 'dashboard'
       ? { type: 'dashboard_state', ...dashboardSnapshot() }
-      : { type: 'round_state', status: rounds.round.status, hits: rounds.round.hits, card: cardId ? rounds.viewerCard(cardId) : undefined }));
+      : role === 'overlay' ? { type: 'round_state', status: rounds.round.status, hits: rounds.round.hits } : { type: 'round_state', status: rounds.round.status, hits: rounds.round.hits, card: cardId ? rounds.viewerCard(cardId) : undefined }));
+    if (role === 'overlay') client.send(JSON.stringify(overlaySnapshot()));
   });
 });
 

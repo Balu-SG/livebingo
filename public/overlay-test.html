@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Overlay design test</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;background:#10131d;color:#f5f6fa;font:16px system-ui,sans-serif}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:0 auto 18px;max-width:1280px}.toolbar button{border:1px solid #a6ff00;border-radius:8px;background:#242b35;color:white;padding:11px 16px;font-weight:700;cursor:pointer}.frame{position:relative;width:min(100%,1280px);aspect-ratio:16/9;margin:auto;overflow:hidden;border:2px solid #5d6572;background:radial-gradient(ellipse at 70% 55%,#455f3c 0,#263a30 29%,transparent 55%),linear-gradient(135deg,#182131,#31404d 48%,#15191f)}.frame:before{content:"";position:absolute;inset:8% 10%;border:2px solid rgba(255,255,255,.18);border-radius:30px;background:repeating-linear-gradient(0deg,transparent 0 64px,rgba(255,255,255,.04) 65px 67px)}.game{position:absolute;inset:0;display:grid;place-items:center;color:rgba(255,255,255,.3);font-size:clamp(22px,5vw,64px);font-weight:900;letter-spacing:.12em;text-shadow:0 5px 15px #000}.frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;z-index:2}
+</style></head><body><div class="toolbar">
+<button data-action="hit">Fake hit</button><button data-action="bingo">Fake bingo</button><button data-action="hits">3 hits in a row</button><button data-action="bingos">2 bingos in a row</button>
+</div><div class="frame"><div class="game">GAME SCREEN</div><iframe title="LiveBingo overlay preview" src="/overlay?panel=1"></iframe></div>
+<script>
+const frame=document.querySelector('iframe'); const send=event=>frame.contentWindow.postMessage({type:'overlay_test_event',event},location.origin);
+document.querySelectorAll('button').forEach(button=>button.addEventListener('click',async()=>{
+  const action=button.dataset.action;
+  if(action==='hit')send({type:'square_hit',label:'Big play',markedCards:8});
+  if(action==='bingo')send({type:'bingo',user:'SampleViewer',rank:1});
+  if(action==='hits')for(let i=0;i<3;i++){send({type:'square_hit',label:['Streamer laughs','Game glitch','Unexpected win'][i],markedCards:4+i});await new Promise(r=>setTimeout(r,450));}
+  if(action==='bingos')for(let i=0;i<2;i++){send({type:'bingo',user:['PixelPilot','ChatChampion'][i],rank:i+1});await new Promise(r=>setTimeout(r,450));}
+}));
+</script></body></html>

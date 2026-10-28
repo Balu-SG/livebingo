@@ -53,6 +53,10 @@ The round, cards, marked squares, and winner order persist in `data/state.json`.
 
 After logging in with the broadcaster account, open `http://localhost:3000/dashboard`. The dashboard requires the signed admin session cookie. Its square editor saves changes for the next round; manual hits, demo events, and voice triggers apply to the live round. Voice recognition is available in Chrome.
 
+## OBS overlay
+
+In OBS, add **Sources → + → Browser**. Set the URL to `http://localhost:3000/overlay?panel=1&sound=1`, width to **1920**, and height to **1080**. The overlay has a transparent background; remove `panel=1` or `sound=1` to hide the mini panel or disable generated sound. OBS may need **Control audio via OBS** enabled for browser source audio. The admin-only design preview is at `http://localhost:3000/overlay/test` and includes client-side buttons for single events and queued sequences.
+
 ## Record the demo
 
 With the app running and logged in as the streamer, run `npm run demo`. It reads `ADMIN_TOKEN` and `PUBLIC_BASE_URL` from `.env`, starts a fresh round, creates five fake viewers, and plays follow, chat-burst, raid, cheer, and manual hits until a card wins. It prints the card links and leaves the round live for recording. To use curl, export the same token in your terminal as `ADMIN_TOKEN`.

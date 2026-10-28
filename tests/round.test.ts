@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { generateCard, hasBingo, RoundManager } from '../src/round.js';
+import { eventForRole, generateCard, hasBingo, RoundManager } from '../src/round.js';
 import { defaultSquares } from '../src/squares.js';
 
 let tempDirectory: string;
@@ -111,6 +111,21 @@ describe('event triggers', () => {
 });
 
 describe('win announcements', () => {
+  it('counts cards containing a hit square and strips viewer card IDs from public bingo events', async () => {
+    const card = manager.createCard('viewer-1', 'viewer');
+    const squareId = card.squareIds.find((id) => id !== 'FREE')!;
+    await manager.saveCard(card);
+    const second = manager.createCard('viewer-2', 'viewer2');
+    second.squareIds[0] = squareId;
+    await manager.saveCard(second);
+    const events = await manager.hitSquare(squareId);
+    expect(events[0]).toMatchObject({ type: 'square_hit', markedCards: 2 });
+    const bingo = { type: 'bingo' as const, user: 'viewer', cardId: 'secret-card-id', rank: 1 };
+    expect(eventForRole(bingo, 'overlay')).toEqual({ type: 'bingo', user: 'viewer', rank: 1 });
+    expect(eventForRole(bingo, 'viewer')).not.toHaveProperty('cardId');
+    expect(eventForRole(bingo, 'dashboard')).toEqual(bingo);
+  });
+
   it('emits exactly one bingo event per card and records its rank', async () => {
     const card = manager.createCard('winner-id', 'winner');
     const manual = defaultSquares.filter((square) => square.trigger.type === 'manual').slice(0, 5).map((square) => square.id);
