@@ -33,6 +33,7 @@ const app = Fastify({ logger: true });
 const rounds = new RoundManager(stateFile);
 const webSocketServer = new WebSocketServer({ noServer: true });
 const socketRoles = new WeakMap<WebSocket, string>();
+const socketCards = new WeakMap<WebSocket, string>();
 
 type TwitchUser = { id: string; login: string; display_name: string };
 type TokenData = { access_token: string; refresh_token: string; expires_at: number; user: TwitchUser };
@@ -107,7 +108,7 @@ function broadcast(event: unknown) {
   for (const socket of webSocketServer.clients) {
     if (socket.readyState !== WebSocket.OPEN) continue;
     const role = socketRoles.get(socket);
-    const outgoing = (event as RoundEvent).type === 'bingo' ? eventForRole(event as RoundEvent, role) : event;
+    const outgoing = (event as RoundEvent).type === 'bingo' ? eventForRole(event as RoundEvent, role, socketCards.get(socket)) : event;
     socket.send(JSON.stringify(outgoing));
   }
 }
@@ -544,6 +545,7 @@ app.server.on('upgrade', (request, socket, head) => {
   webSocketServer.handleUpgrade(request, socket, head, (client) => {
     webSocketServer.emit('connection', client, request);
     socketRoles.set(client, role ?? 'viewer');
+    if (cardId) socketCards.set(client, cardId);
     client.send(JSON.stringify(role === 'dashboard'
       ? { type: 'dashboard_state', ...dashboardSnapshot() }
       : role === 'overlay' ? createOverlayRoundState(rounds.round) : { type: 'round_state', status: rounds.round.status, hits: rounds.round.hits, card: cardId ? rounds.viewerCard(cardId) : undefined }));

@@ -25,8 +25,8 @@ export type RoundEvent =
   | { type: 'square_hit'; squareId: string; label: string; at: string; markedCards: number }
   | { type: 'bingo'; user: string; cardId: string; rank: number };
 
-export function eventForRole(event: RoundEvent, role: string | undefined): RoundEvent | Omit<Extract<RoundEvent, { type: 'bingo' }>, 'cardId'> {
-  if (event.type === 'bingo' && role !== 'dashboard') {
+export function eventForRole(event: RoundEvent, role: string | undefined, socketCardId?: string): RoundEvent | Omit<Extract<RoundEvent, { type: 'bingo' }>, 'cardId'> {
+  if (event.type === 'bingo' && role !== 'dashboard' && event.cardId !== socketCardId) {
     const { cardId: _cardId, ...publicEvent } = event;
     return publicEvent;
   }

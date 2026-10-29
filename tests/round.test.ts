@@ -124,6 +124,8 @@ describe('win announcements', () => {
     expect(eventForRole(bingo, 'overlay')).toEqual({ type: 'bingo', user: 'viewer', rank: 1 });
     expect(eventForRole(bingo, 'viewer')).not.toHaveProperty('cardId');
     expect(eventForRole(bingo, 'dashboard')).toEqual(bingo);
+    expect(eventForRole(bingo, 'viewer', bingo.cardId)).toEqual(bingo);
+    expect(eventForRole(bingo, 'viewer', 'another-card')).not.toHaveProperty('cardId');
   });
 
   it('emits exactly one bingo event per card and records its rank', async () => {
