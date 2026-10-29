@@ -12,9 +12,11 @@ Features:
 
 ## Screenshots / GIF
 
-<!-- TODO: Add dashboard and viewer card screenshots or a short demo GIF. -->
+<img src="screenshots/viewer-card.png" alt="A viewer's LiveBingo card after a demo round: eight squares auto-marked and a #1 BINGO banner" width="360">
 
-![LiveBingo dashboard and OBS overlay preview](screenshots/livebingo-demo.gif)
+A viewer's card after `npm run demo`: squares were marked by a follow, a chat burst, a raid, cheers and manual hits, and the card won BINGO #1.
+
+Live deployment: https://livebingo-eehe.onrender.com (free Render instance, so the first request after idle can take ~50 s).
 
 ## Twitch app settings
 
@@ -23,7 +25,7 @@ Create an application in the [Twitch Developer Console](https://dev.twitch.tv/co
 - Local: `http://localhost:3000/auth/callback`
 - Render: `https://livebingo-eehe.onrender.com/auth/callback`
 
-The Render URL assumes the service name `livebingo`; if you choose a different service name or custom domain, update the redirect URL and environment values to match it.
+Render adds a suffix when a service name is taken (this deployment is `livebingo-eehe`); if your URL differs, update the redirect URL and environment values to match it.
 
 ## Environment variables
 
@@ -88,7 +90,16 @@ npm run build
 
 ## How it was built with Codex
 
-TODO: Add my notes about the Codex build process.
+LiveBingo's application code was written by OpenAI Codex. I planned the features, wrote one prompt per build day, tested each result on my own channel, and sent Codex the errors and changes I wanted.
+
+- **Main thread, "Build LiveBingo Twitch foundation"** (session `01a17332-e64d-7940-b697-0794c7bd77f2`), built in four steps:
+  1. Twitch OAuth, EventSub over WebSocket, and the `!bingo` chat reply.
+  2. Seeded 5×5 cards, the live viewer card page, and win detection with ranks.
+  3. Automatic marking from follows, subs, gift subs, raids, cheers and chat bursts; demo mode; admin protection.
+  4. The streamer dashboard, AI square suggestions with structured output, and Web Speech voice triggers.
+- **Second thread, "Build OBS stream overlay":** the transparent overlay with queued hit toasts, the BINGO celebration with Web Audio sounds, and the `/overlay/test` page. The same thread did the Render deploy config, token-expiry and reconnect handling, accessibility fixes and this README.
+- **Security fixes I asked Codex for after reviewing its work:** only the first broadcaster (or `BROADCASTER_LOGIN`) can log in, so a visitor can't replace the bot's tokens; card IDs (which work as viewer links) are stripped from events sent to the public overlay and viewer sockets, and a test covers this.
+- Each step ended with Codex running `npm test`, `npm run build` and `npm run demo` before committing. The commit history shows the steps in order.
 
 ## License
 
